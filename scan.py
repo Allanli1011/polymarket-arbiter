@@ -22,24 +22,42 @@ async def scan_once():
     detector = ArbitrageDetector(client)
     
     async with client:
-        # Fetch active markets with volume
-        markets = await client.get_markets(limit=100, closed=False, volume_min=50000)
+        # Fetch all active markets (paginated)
+        all_markets = []
+        offset = 0
+        batch_size = 50
         
-        if not markets:
+        while len(all_markets) < 200:  # Max 200 markets
+            markets = await client.get_markets(
+                limit=100, 
+                offset=offset, 
+                closed=False,
+                volume_min=10000
+            )
+            if not markets:
+                break
+            all_markets.extend(markets)
+            offset += batch_size
+            
+            # If we got less than batch_size, no more data
+            if len(markets) < batch_size:
+                break
+        
+        if not all_markets:
             print("❌ 无法获取 Polymarket 市场数据")
             return
         
         # Run detection
-        opportunities = await detector.full_scan(markets)
+        opportunities = await detector.full_scan(all_markets)
         
         # Output format for Telegram
         if not opportunities:
-            print(f"✅ Polymarket 扫描完成: 检查了 {len(markets)} 个高流动性市场，暂无套利机会")
+            print(f"✅ Polymarket 扫描完成: 检查了 {len(all_markets)} 个市场，暂无套利机会")
             return
         
         # Found opportunities - format for Telegram
         print(f"🔍 *Polymarket 套利扫描报告*\n")
-        print(f"扫描市场: {len(markets)} 个 (成交量 > $50k)")
+        print(f"扫描市场: {len(all_markets)} 个 (成交量 > $10k)")
         print(f"发现机会: *{len(opportunities)} 个*\n")
         print("─" * 30)
         
