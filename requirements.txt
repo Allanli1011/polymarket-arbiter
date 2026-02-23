@@ -1,0 +1,8 @@
+# Polymarket Arbitrage Monitor
+# Dependencies for production-grade arbitrage detection
+
+aiohttp>=3.9.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+structlog>=24.0.0
+python-telegram-bot>=20.0
