@@ -26,8 +26,8 @@
 - [x] 修复收益率计算：按无风险套利公式计算
 - [x] 更新 CHANGELOG.md
 - [x] Stage & Verify
-- [ ] Create PR
-- [ ] Merge & Report
+- [x] Create PR
+- [x] Merge & Report
 
 ---
 
