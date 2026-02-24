@@ -166,39 +166,86 @@ class ArbitrageDetector:
         m1: Market, 
         m2: Market
     ) -> Optional[ArbitrageOpportunity]:
-        """Check if two markets offer cross-market arbitrage"""
+        """
+        Check if two markets offer cross-market arbitrage.
+        
+        Valid cases:
+        1. Same event, different expiry (e.g., "BTC>$60k today" vs "BTC>$60k this week")
+        2. Complementary outcomes on same event (e.g., "X wins" vs "X loses")
+        """
         
         # Skip if same condition ID (same market)
         if m1.condition_id == m2.condition_id:
+            return None
+        
+        # Check if they're truly the same underlying event
+        # Require high similarity in question text (not just first 3 words)
+        q1 = m1.question.lower()
+        q2 = m2.question.lower()
+        
+        # Extract core event (remove time qualifiers like "on February 24")
+        import re
+        core_event_1 = re.sub(r'\s+(on|by|before|after|during)\s+.*$', '', q1).strip()
+        core_event_2 = re.sub(r'\s+(on|by|before|after|during)\s+.*$', '', q2).strip()
+        
+        # Must be same core event
+        if core_event_1 != core_event_2:
             return None
         
         # Check if outcomes are complementary (Yes/No type)
         outcomes_1 = {o.name.lower() for o in m1.outcomes}
         outcomes_2 = {o.name.lower() for o in m2.outcomes}
         
-        # Look for Yes/No pairs
-        if "yes" in outcomes_1 and "no" in outcomes_1:
-            yes_price = next(o.price for o in m1.outcomes if o.name.lower() == "yes")
-            no_price = next(o.price for o in m1.outcomes if o.name.lower() == "no")
+        # Both must be binary Yes/No markets
+        if not ({"yes", "no"} <= outcomes_1 and {"yes", "no"} <= outcomes_2):
+            return None
+        
+        yes_price_1 = next(o.price for o in m1.outcomes if o.name.lower() == "yes")
+        no_price_1 = next(o.price for o in m1.outcomes if o.name.lower() == "no")
+        yes_price_2 = next(o.price for o in m2.outcomes if o.name.lower() == "yes")
+        no_price_2 = next(o.price for o in m2.outcomes if o.name.lower() == "no")
+        
+        # Calculate valid arbitrage:
+        # If m1.Yes + m2.No < 1, buy both and profit = 1 - (m1.Yes + m2.No)
+        # If m1.No + m2.Yes < 1, buy both and profit = 1 - (m1.No + m2.Yes)
+        
+        combo_1 = yes_price_1 + no_price_2  # Buy Yes on m1, No on m2
+        combo_2 = no_price_1 + yes_price_2  # Buy No on m1, Yes on m2
+        
+        profit_1 = 1.0 - combo_1 if combo_1 < 1.0 else 0
+        profit_2 = 1.0 - combo_2 if combo_2 < 1.0 else 0
+        
+        best_profit = max(profit_1, profit_2)
+        
+        if best_profit > config.SPREAD_THRESHOLD:
+            if profit_1 > profit_2:
+                action = f"买 {m1.question[:30]}... 的 Yes + 买 {m2.question[:30]}... 的 No"
+                details = {
+                    "action": action,
+                    "buy_yes_at": m1.question[:40],
+                    "buy_no_at": m2.question[:40],
+                    "cost": combo_1,
+                    "payout": 1.0,
+                    "profit": best_profit,
+                }
+            else:
+                action = f"买 {m1.question[:30]}... 的 No + 买 {m2.question[:30]}... 的 Yes"
+                details = {
+                    "action": action,
+                    "buy_no_at": m1.question[:40],
+                    "buy_yes_at": m2.question[:40],
+                    "cost": combo_2,
+                    "payout": 1.0,
+                    "profit": best_profit,
+                }
             
-            # Check against other market
-            if "yes" in outcomes_2:
-                other_yes = next(o.price for o in m2.outcomes if o.name.lower() == "yes")
-                
-                diff = abs(yes_price - other_yes)
-                if diff > config.SPREAD_THRESHOLD:
-                    return ArbitrageOpportunity(
-                        id=f"cross_{m1.condition_id}_{m2.condition_id}_{int(datetime.now().timestamp())}",
-                        type=OpportunityType.CROSS_MARKET,
-                        markets=[m1, m2],
-                        profit_estimate=diff,
-                        details={
-                            "action": "跨市场对冲",
-                            "m1_yes": yes_price,
-                            "m2_yes": other_yes,
-                            "diff": diff,
-                        }
-                    )
+            return ArbitrageOpportunity(
+                id=f"cross_{m1.condition_id}_{m2.condition_id}_{int(datetime.now().timestamp())}",
+                type=OpportunityType.CROSS_MARKET,
+                markets=[m1, m2],
+                profit_estimate=best_profit,
+                details=details
+            )
         
         return None
     

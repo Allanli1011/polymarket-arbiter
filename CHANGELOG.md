@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **cross_market 套利检测逻辑修复** (2026-02-24)
+  - 修复分组逻辑：添加核心事件匹配检查（去除时间限定词后比较）
+  - 修复配对逻辑：要求互补市场（Yes/No 价格之和偏离 100%）
+  - 修复收益率计算：按无风险套利公式 `profit = 1 - (yes_price + no_price)` 计算
+  - 解决误报问题：不再把任意两个 Yes/No 市场价格差当作套利机会
+
 ### Added
 - 初始版本：Polymarket 套利监控系统
 - API 客户端：支持 Gamma API 和 CLOB API

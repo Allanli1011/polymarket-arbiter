@@ -17,6 +17,20 @@
 - [x] 推送到 GitHub Remote
 - [ ] 添加测试文件
 
+## [2026-02-24] Fix: cross_market 套利检测逻辑
+
+### Bug 修复
+- [x] 分析原始 cross_market 定义（同一事件不同市场定价偏差）
+- [x] 修复分组逻辑：添加问题相似度检查 (>80%)
+- [x] 修复配对逻辑：要求互补市场 (Yes/No 价格之和偏离 100%)
+- [x] 修复收益率计算：按无风险套利公式计算
+- [x] 更新 CHANGELOG.md
+- [x] Stage & Verify
+- [ ] Create PR
+- [ ] Merge & Report
+
+---
+
 ### 后续功能
 - [ ] 接入 Telegram Bot 详细通知
 - [ ] 增加更多套利检测策略
